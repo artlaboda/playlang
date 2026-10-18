@@ -65,6 +65,7 @@
     inLevel: 0, levelMistakes: 0, correct: 0, wrong: 0,
     word: null, baskets: [], recent: [], review: [],
     buffs: { slow: 0, double: 0, shield: 0 },
+    ease: 0,            // мягкое замедление после ошибок, тает с верными ответами
     ok: [], bad: [], fast: 0, golden: 0, voiceIdx: 0,
     timer: null, xpBefore: 0, dailyBefore: 0, newRecordShown: false,
   };
@@ -100,19 +101,34 @@
     centers = [...basketsEl.children].map(b => { const r = b.getBoundingClientRect(); return r.left - fr.left + r.width / 2; });
   }
   function maxBaskets() { return W < 520 ? 4 : 5; }
-  function basketCount(level) {
-    if (G.mode === 'translate') return Math.min(maxBaskets(), level <= 1 ? 2 : level <= 3 ? 3 : level <= 6 ? 4 : 5);
-    return Math.min(maxBaskets(), level <= 2 ? 3 : level <= 5 ? 4 : 5);
+  // Ступени сложности. За уровень меняется что-то одно: добавляется корзина ИЛИ
+  // слова становятся сложнее, и тогда скорость падения возвращается к спокойной.
+  // Ускоряется игра только внутри ступени, пока ничего другого не меняется.
+  const TR_STAGES = [ // [корзин, слова от, слова до]
+    [2, 1, 1], [2, 1, 1], [3, 1, 1], [3, 1, 1], [3, 1, 2], [3, 1, 2], [4, 1, 2], [4, 1, 2],
+    [4, 2, 3], [4, 2, 3], [5, 2, 3], [5, 2, 3], [5, 3, 4], [5, 3, 4], [5, 4, 5],
+  ];
+  const CAT_STAGES = [3, 3, 3, 4, 4, 4, 5];
+  function stageRow(level) {
+    if (G.mode === 'translate') {
+      const r = TR_STAGES[Math.min(level, TR_STAGES.length) - 1];
+      return { b: Math.min(maxBaskets(), r[0]), lo: r[1], hi: r[2] };
+    }
+    return { b: Math.min(maxBaskets(), CAT_STAGES[Math.min(level, CAT_STAGES.length) - 1]), lo: 1, hi: 3 };
   }
-  // Какие уровни сложности слов падают в режиме «Перевод».
-  function tierRange(level) {
-    if (level <= 2) return [1, 1];
-    if (level <= 4) return [1, 2];
-    if (level <= 6) return [2, 3];
-    if (level <= 8) return [3, 4];
-    if (level <= 10) return [4, 5];
-    return [4, 5];
+  function stage(level) {
+    const r = stageRow(level);
+    // step — сколько уровней подряд ступень не менялась (= сколько раз уже ускорялись).
+    let step = 0;
+    for (let l = level - 1; l >= 1; l--) {
+      const p = stageRow(l);
+      if (p.b !== r.b || p.lo !== r.lo || p.hi !== r.hi) break;
+      step++;
+    }
+    return Object.assign(r, { step });
   }
+  function basketCount(level) { return stage(level).b; }
+  function tierRange(level) { const st = stage(level); return [st.lo, st.hi]; }
 
   // ---------- Фон: медленный дождь из букв ----------
   const glyphs = [];
@@ -223,15 +239,63 @@
       if (anim) b.style.animationDelay = (i * (anim === 'enter' ? 0.06 : 0.03)) + 's';
       if (c.en) {
         b.setAttribute('aria-label', `${c.en} — ${c.ru}`);
-        b.innerHTML = `<span class="key">${i + 1}</span><span class="ic">${c.icon}</span><span class="en">${esc(c.en)}</span><span class="ru">${esc(c.ru)}</span>`;
+        b.innerHTML = `<span class="key">${i + 1}</span><span class="ic">${c.icon}</span>` +
+          `<span class="plate"><span class="en" lang="en" data-fit="line">${esc(c.en)}</span><span class="ru" data-fit="line">${esc(c.ru)}</span></span>`;
       } else {
         b.setAttribute('aria-label', c.ru);
-        b.innerHTML = `<span class="key">${i + 1}</span><span class="tr">${esc(c.ru)}</span>`;
+        b.innerHTML = `<span class="key">${i + 1}</span><span class="plate"><span class="tr" data-fit="multi">${esc(hyphenateRu(c.ru))}</span></span>`;
       }
       b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); commit(i); });
       basketsEl.appendChild(b);
     });
     measureBaskets();
+    fitLabels();
+  }
+  // Мягкие переносы по слогам русского языка: браузер ставит дефис только там,
+  // где слово иначе не влезает, и только на границе слога (ка-та-ние, програм-мист).
+  const RU_V = 'аеёиоуыэюя', RU_L = /[а-яё]/i;
+  function hyphenateRu(text) {
+    return text.split(' ').map(word => {
+      if (word.length < 6) return word;
+      const w = word.toLowerCase();
+      const isV = i => RU_V.includes(w[i]);
+      const isC = i => RU_L.test(w[i]) && !isV(i) && !'ьъй'.includes(w[i]);
+      const hasV = (a, b) => { for (let k = a; k < b; k++) if (isV(k)) return true; return false; };
+      let out = '', from = 0;
+      for (let i = 2; i <= w.length - 2; i++) {
+        if ('ьъй'.includes(w[i]) || !hasV(from, i) || !hasV(i, w.length)) continue;
+        // «гр», «кл», «бр»… не разрываем: они уходят в следующий слог (про|грамма).
+        const onset = j => 'бвгдкпстфхзж'.includes(w[j]) && 'рл'.includes(w[j + 1]);
+        const ok =
+          (isV(i - 1) && isC(i) && isV(i + 1)) ||                    // ка|та
+          (isV(i - 1) && onset(i) && isV(i + 2)) ||                  // про|грам
+          (isC(i - 1) && isC(i) && isV(i + 1) && isV(i - 2) && !onset(i - 1)) || // кар|та, ам|ми
+          ('ьъй'.includes(w[i - 1]) && isC(i)) ||                    // мель|ница, строй|ка
+          (isV(i - 1) && isV(i));                                    // ду|эт
+        if (ok) { out += word.slice(from, i) + '\u00AD'; from = i; }
+      }
+      return out + word.slice(from);
+    }).join(' ');
+  }
+  // Подписи уменьшаются, пока помещаются в корзину. Сначала пробуем без переносов
+  // внутри слов (до 13px, до 3 строк); если слово всё равно не влезает —
+  // разрешаем перенос по слогу (до 12px, до 4 строк).
+  function fitLabels() {
+    basketsEl.querySelectorAll('[data-fit]').forEach(t => {
+      const multi = t.dataset.fit === 'multi';
+      const shrink = (min, lines) => {
+        t.style.fontSize = '';
+        let size = parseFloat(getComputedStyle(t).fontSize);
+        const tooBig = () => t.scrollWidth > t.clientWidth + 1 || (multi && t.scrollHeight > size * 1.15 * lines + 3);
+        while (size > min && tooBig()) { size -= 0.5; t.style.fontSize = size + 'px'; }
+        return !tooBig();
+      };
+      if (!multi) { shrink(10, 1); return; }
+      t.classList.add('nohy');
+      if (shrink(13, 3)) return;
+      t.classList.remove('nohy');
+      shrink(12, 4);
+    });
   }
   function placeholderBaskets(n) {
     return Array.from({ length: n }, (_, i) => ({ id: '', ru: '?', color: TR_COLORS[i % TR_COLORS.length] }));
@@ -243,7 +307,8 @@
     const clash = x => x.w === e.w || chosen.some(c => c.ru === x.ru || c.w === x.w || (SYN[c.w] && SYN[c.w].has(x.w)));
     const sameCat = TR_WORDS.filter(x => e.cat && x.cat === e.cat && x.tier >= lo - 1 && x.tier <= hi + 1);
     const near = TR_WORDS.filter(x => x.tier >= lo - 1 && x.tier <= hi + 1);
-    const share = G.level >= 7 ? 0.6 : G.level >= 4 ? 0.35 : 0.1;
+    // Ловушки из той же темы — только когда слова уже не начальные.
+    const share = hi >= 4 ? 0.5 : hi >= 3 ? 0.3 : 0.1;
     for (let tries = 0; chosen.length < n && tries < 300; tries++) {
       const src = tries > 200 ? TR_WORDS : (Math.random() < share && sameCat.length > n ? sameCat : near);
       const x = pick(src);
@@ -285,8 +350,14 @@
     return pool[pool.length - 1];
   }
 
+  // Чем больше корзин и сложнее слова, тем больше времени на чтение вариантов.
   function fallDuration(entry) {
-    let d = Math.max(2.3, 7.4 * Math.pow(0.9, G.level - 1)) + entry.w.length * 0.05;
+    const st = stage(G.level);
+    const tr = G.mode === 'translate';
+    const base = tr ? 6.2 + 0.9 * (st.b - 2) + 0.5 * (st.hi - 1) : 6.6 + 0.4 * (st.b - 3);
+    let d = Math.max(tr ? 3.6 : 2.8, base * Math.pow(0.9, Math.min(st.step, 6)));
+    d += entry.w.length * 0.05;
+    d *= 1 + G.ease;
     if (G.buffs.slow > 0) d *= 1.6;
     return d;
   }
@@ -399,6 +470,7 @@
 
   function onCorrect(w, col, bonusFrac, dropped) {
     G.combo++; G.correct++; G.inLevel++;
+    G.ease = Math.max(0, G.ease - 0.04);
     G.bestCombo = Math.max(G.bestCombo, G.combo);
     // Бонус за сброс: 5 очков за сам бросок и до 15 за то, насколько рано.
     const dropBonus = dropped ? 5 + Math.round(15 * bonusFrac) : 0;
@@ -460,6 +532,7 @@
     if (!G.bad.find(e => e.w === w.e.w)) G.bad.push(w.e);
     G.wrong++;
     G.levelMistakes++;
+    G.ease = Math.min(0.45, G.ease + 0.15);
     G.review.push({ e: w.e, due: 3 + Math.floor(Math.random() * 3) });
 
     w.node.classList.add('bad');
@@ -568,7 +641,12 @@
     if (G.level >= 10) tryAch('level10');
     Sfx.levelUp();
     renderHud();
-    showLevelIntro(extras.join(' · ') || 'Слова падают быстрее');
+    const prev = stage(G.level - 1), cur = stage(G.level);
+    let change = 'Чуть быстрее';
+    if (cur.b > prev.b) change = 'Новая корзина · скорость сброшена';
+    else if (cur.hi > prev.hi || cur.lo > prev.lo) change = `Слова сложнее: ${TIER_LABEL[cur.hi]} · скорость сброшена`;
+    extras.unshift(change);
+    showLevelIntro(extras.join(' · '));
   }
 
   function showLevelIntro(extra) {
@@ -612,7 +690,7 @@
     Object.assign(G, {
       score: 0, lives: 3, level: 1, combo: 0, bestCombo: 0, inLevel: 0, levelMistakes: 0,
       correct: 0, wrong: 0, word: null, baskets: [], recent: [], review: [],
-      buffs: { slow: 0, double: 0, shield: 0 }, ok: [], bad: [], fast: 0, golden: 0,
+      buffs: { slow: 0, double: 0, shield: 0 }, ease: 0, ok: [], bad: [], fast: 0, golden: 0,
       xpBefore: D.xp, dailyBefore: Store.daily().count, newRecordShown: false,
     });
     D.games++;
@@ -956,7 +1034,7 @@
     window.addEventListener('pointercancel', () => { down = null; });
 
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
-    window.addEventListener('resize', () => { resize(); initBg(); });
+    window.addEventListener('resize', () => { resize(); initBg(); fitLabels(); });
   }
 
   // ---------- Главный цикл ----------
@@ -1009,7 +1087,7 @@
     renderMenu();
     requestAnimationFrame(frame);
     // На случай, если шрифты догрузились позже и сдвинули корзины.
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { resize(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { resize(); fitLabels(); });
   }
   boot();
 })();

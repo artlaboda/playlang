@@ -205,18 +205,34 @@ button { font: inherit; color: inherit; }
   15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
   100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
 }
-.translation {
-  position: absolute; z-index: 6; pointer-events: none;
-  transform: translate(-50%, 0);
-  padding: 8px 14px; border-radius: 12px;
-  background: var(--glass); border: 1px solid var(--line);
-  font-size: 15px; white-space: nowrap; text-align: center;
-  animation: tr 1.6s ease-out forwards;
+.float.drop { color: var(--mint); font: 900 16px/1.2 var(--f-display); }
+
+/* Карточка запоминания в центре поля */
+.reveal {
+  position: absolute; z-index: 7; left: 50%; top: 46%;
+  transform: translate(-50%, -50%);
+  min-width: min(280px, 80%); max-width: calc(100% - 32px);
+  padding: 18px 26px 16px;
+  border-radius: 20px;
+  background: var(--glass);
+  border: 2px solid var(--mint);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(95, 224, 176, 0.18);
+  text-align: center;
+  pointer-events: none;
+  animation: reveal 1.5s cubic-bezier(.2,1.2,.4,1) forwards;
 }
-.translation b { font-family: var(--f-display); font-weight: 700; }
-.translation .ru { color: var(--mint); }
-.translation.bad .ru { color: var(--coral); }
-@keyframes tr { 0% { opacity: 0; transform: translate(-50%, 8px); } 12%, 70% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -14px); } }
+.reveal.bad { border-color: var(--coral); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(255, 107, 90, 0.2); animation-duration: 1.8s; }
+.rv-en { font: 700 clamp(26px, 7vw, 40px)/1.1 var(--f-display); color: var(--paper); }
+.rv-ru { font: 700 clamp(22px, 6vw, 34px)/1.15 var(--f-body); color: var(--mint); margin-top: 6px; text-wrap: balance; }
+.reveal.bad .rv-ru { color: var(--saffron); }
+.rv-cat { font-size: 12px; color: var(--mist); margin-top: 8px; letter-spacing: 0.04em; }
+.rv-note { font: 700 11px/1 var(--f-body); color: var(--coral); text-transform: uppercase; letter-spacing: 0.2em; margin-top: 8px; }
+@keyframes reveal {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
+  22%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(0.96); }
+}
 
 /* ---------- Корзины ---------- */
 .baskets {
@@ -261,6 +277,14 @@ button { font: inherit; color: inherit; }
   position: absolute; top: 16px; left: 12px;
   font: 700 10px/1 var(--f-mono); opacity: 0.45;
 }
+.basket .tr {
+  font: 700 clamp(14px, 3.9vw, 21px)/1.15 var(--f-body);
+  max-width: 100%; overflow-wrap: anywhere; text-align: center;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  margin-block: auto;
+}
+.basket.swap { animation: swap 0.28s backwards; }
+@keyframes swap { from { opacity: 0.2; transform: translateY(10px) scale(0.96); } }
 .basket:hover { filter: brightness(1.08); }
 .basket.target { transform: translateY(-8px); filter: brightness(1.15) saturate(1.1); }
 .basket.hit { animation: hit 0.35s; }
@@ -352,6 +376,12 @@ h2 { margin: 0; font: 700 22px/1.2 var(--f-display); text-wrap: balance; }
 @media (hover: none) { .btn kbd { display: none; } }
 .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .row-btns .btn { flex: 1 1 0; }
+.mode { display: flex; flex-direction: column; gap: 8px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(245, 236, 217, 0.06); border: 1px solid var(--line); }
+.seg-b { min-height: 40px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; font: 700 14px/1 var(--f-display); color: var(--mist); }
+.seg-b[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+.mode-hint { margin: 0; font-size: 13px; color: var(--mist); min-height: 2.9em; }
+.settings-k { font: 700 12px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--mist); }
 .voice-line { margin: 0; font-size: 12px; color: var(--mist); text-align: center; }
 .voice-line b { color: var(--paper); }
 
@@ -444,5 +474,5 @@ kbd { font: 700 11px/1 var(--f-mono); padding: 3px 6px; border-radius: 5px; bord
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-  .toast, .float, .translation { animation-duration: 2.4s !important; }
+  .toast, .float, .reveal { animation-duration: 2.4s !important; }
 }

@@ -19,7 +19,8 @@
     daily: { day: '', count: 0 },
     ach: {},
     mastery: {},
-    settings: { voices: null, rate: 0.95, repeats: 4, sfx: 0.5 },
+    bests: { category: 0, translate: 0 },
+    settings: { voices: null, rate: 0.95, repeats: 4, sfx: 0.5, mode: 'category' },
   });
 
   let data = defaults();
@@ -29,6 +30,8 @@
       const saved = JSON.parse(raw);
       data = Object.assign(defaults(), saved);
       data.settings = Object.assign(defaults().settings, saved.settings || {});
+      // Старые сохранения: единый рекорд был рекордом режима «Категории».
+      if (!saved.bests) data.bests = { category: saved.best || 0, translate: 0 };
     }
   } catch (e) {}
 

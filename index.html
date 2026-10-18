@@ -70,9 +70,17 @@
         <div class="stat"><div class="stat-v" id="mBest">0</div><div class="stat-k">рекорд</div></div>
       </div>
 
+      <div class="mode">
+        <div class="seg" role="group" aria-label="Режим игры">
+          <button class="seg-b" data-mode="category" aria-pressed="true">Категории</button>
+          <button class="seg-b" data-mode="translate" aria-pressed="false">Перевод</button>
+        </div>
+        <p class="mode-hint"></p>
+      </div>
+
       <button class="btn primary big" id="playBtn">Играть <kbd>Enter</kbd></button>
       <div class="row-btns">
-        <button class="btn" id="voicesBtn">Голоса</button>
+        <button class="btn" id="voicesBtn">Настройки</button>
         <button class="btn" id="dictBtn">Словарь</button>
         <button class="btn" id="helpBtn">Как играть</button>
       </div>
@@ -86,8 +94,9 @@
       <h2>Как играть</h2>
       <ul class="howto">
         <li><b>Слушай.</b> Пока слово падает, его по очереди произносят разные голоса: американский, британский, австралийский…</li>
-        <li><b>Лови.</b> Нажми на корзину, к которой относится слово. Или веди слово пальцем, стрелками <kbd>←</kbd> <kbd>→</kbd> и роняй <kbd>↓</kbd> / <kbd>Пробел</kbd>. Цифры <kbd>1</kbd>–<kbd>5</kbd> бросают сразу в корзину.</li>
-        <li><b>Быстрее — дороже.</b> Чем раньше бросишь, тем больше бонус за скорость.</li>
+        <li><b>Два режима.</b> «Категории»: корзины — темы (Animals, Food…). «Перевод»: корзины — русские переводы, их становится больше с уровнем, а слова сложнее, от A1 до C1.</li>
+        <li><b>Лови.</b> Нажми на корзину. Или веди слово пальцем либо стрелками <kbd>←</kbd> <kbd>→</kbd> и сбрасывай: свайп вниз, тап по слову, <kbd>↓</kbd> или <kbd>Пробел</kbd>. Цифры <kbd>1</kbd>–<kbd>5</kbd> бросают сразу в корзину.</li>
+        <li><b>Сброс приносит очки.</b> Любой сброс даёт бонус, а чем раньше бросил, тем он больше. Совсем ранний бросок — «Молния».</li>
         <li><b>Комбо.</b> Каждые 5 верных слов подряд повышают множитель, до ×5.</li>
         <li><b>Бонусы.</b> <span class="pw">✦</span> золотое слово ×3, <span class="pw">❄</span> замедление, <span class="pw">×2</span> двойные очки, <span class="pw">♥</span> жизнь, <span class="pw">◈</span> щит от ошибки.</li>
         <li><b>Ошибки</b> отнимают жизнь, а слово вернётся позже, чтобы ты его запомнил.</li>
@@ -99,7 +108,16 @@
   <!-- Голоса и настройки -->
   <section class="screen" id="voicesPanel" hidden>
     <div class="panel wide">
-      <h2>Голоса</h2>
+      <h2>Настройки</h2>
+      <div class="mode">
+        <div class="settings-k">Режим игры</div>
+        <div class="seg" role="group" aria-label="Режим игры">
+          <button class="seg-b" data-mode="category" aria-pressed="true">Категории</button>
+          <button class="seg-b" data-mode="translate" aria-pressed="false">Перевод</button>
+        </div>
+        <p class="mode-hint"></p>
+      </div>
+      <div class="settings-k">Голоса</div>
       <p class="muted small">Игра сама выбирает самые чёткие голоса на устройстве и чередует акценты. Можно отметить свои. Лучше всего звучат голоса <b>Natural</b> в Microsoft Edge, <b>Google</b> в Chrome и <b>Premium/Enhanced</b> в Safari (их можно скачать в настройках системы: «Универсальный доступ → Устный контент»).</p>
       <div class="voice-tools">
         <button class="btn small" id="vAuto">Автоподбор</button>

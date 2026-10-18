@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Словопад</title>
-<meta name="description" content="Аркада для изучения английского: слова падают, их произносят разные голоса, а ты раскладываешь их по корзинам.">
+<meta name="description" content="Аркада для изучения английского и испанского: слова падают, их произносят разные голоса, а ты раскладываешь их по корзинам.">
 <meta name="theme-color" content="#0b1d22">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,6 +70,10 @@
         <div class="stat"><div class="stat-v" id="mBest">0</div><div class="stat-k">рекорд</div></div>
       </div>
 
+      <div class="seg lang-seg" role="group" aria-label="Изучаемый язык">
+        <button class="seg-b" data-lang="en" aria-pressed="true"><span class="fl">🇬🇧</span> English</button>
+        <button class="seg-b" data-lang="es" aria-pressed="false"><span class="fl">🇪🇸</span> Español</button>
+      </div>
       <div class="mode">
         <div class="seg" role="group" aria-label="Режим игры">
           <button class="seg-b" data-mode="category" aria-pressed="true">Категории</button>
@@ -93,8 +97,9 @@
     <div class="panel">
       <h2>Как играть</h2>
       <ul class="howto">
-        <li><b>Слушай.</b> Пока слово падает, его по очереди произносят разные голоса: американский, британский, австралийский…</li>
-        <li><b>Два режима.</b> «Категории»: корзины — темы (Animals, Food…). «Перевод»: корзины — русские переводы, их становится больше с уровнем, а слова сложнее, от A1 до C1.</li>
+        <li><b>Выбери язык.</b> English или Español — у каждого свои слова, голоса, рекорды и словарь. Испанские существительные идут с артиклем (el gato, la casa), чтобы сразу запоминать род.</li>
+        <li><b>Слушай.</b> Пока слово падает, его по очереди произносят разные голоса с разными акцентами: для английского американский, британский, австралийский…, для испанского — Испания, Мексика, Аргентина…</li>
+        <li><b>Два режима.</b> «Категории»: корзины — темы (Animals / Animales, Food / Comida…). «Перевод»: корзины — русские переводы, их становится больше с уровнем, а слова сложнее, от A1 до C1.</li>
         <li><b>Плавный рост.</b> За уровень меняется что-то одно: новая корзина или более сложные слова, и тогда скорость возвращается к спокойной. После ошибки слова на время падают медленнее.</li>
         <li><b>Лови.</b> Нажми на корзину. Или веди слово пальцем либо стрелками <kbd>←</kbd> <kbd>→</kbd> и сбрасывай: свайп вниз, тап по слову, <kbd>↓</kbd> или <kbd>Пробел</kbd>. Цифры <kbd>1</kbd>–<kbd>5</kbd> бросают сразу в корзину.</li>
         <li><b>Сброс приносит очки.</b> Любой сброс даёт бонус, а чем раньше бросил, тем он больше. Совсем ранний бросок — «Молния».</li>
@@ -111,6 +116,13 @@
     <div class="panel wide">
       <h2>Настройки</h2>
       <div class="mode">
+        <div class="settings-k">Язык</div>
+        <div class="seg lang-seg" role="group" aria-label="Изучаемый язык">
+          <button class="seg-b" data-lang="en" aria-pressed="true"><span class="fl">🇬🇧</span> English</button>
+          <button class="seg-b" data-lang="es" aria-pressed="false"><span class="fl">🇪🇸</span> Español</button>
+        </div>
+      </div>
+      <div class="mode">
         <div class="settings-k">Режим игры</div>
         <div class="seg" role="group" aria-label="Режим игры">
           <button class="seg-b" data-mode="category" aria-pressed="true">Категории</button>
@@ -119,7 +131,7 @@
         <p class="mode-hint"></p>
       </div>
       <div class="settings-k">Голоса</div>
-      <p class="muted small">Игра сама выбирает самые чёткие голоса на устройстве и чередует акценты. Можно отметить свои. Лучше всего звучат голоса <b>Natural</b> в Microsoft Edge, <b>Google</b> в Chrome и <b>Premium/Enhanced</b> в Safari (их можно скачать в настройках системы: «Универсальный доступ → Устный контент»).</p>
+      <p class="muted small">Игра сама выбирает самые чёткие голоса выбранного языка на устройстве и чередует акценты. Можно отметить свои. Лучше всего звучат голоса <b>Natural</b> в Microsoft Edge, <b>Google</b> в Chrome и <b>Premium/Enhanced</b> в Safari (их можно скачать в настройках системы: «Универсальный доступ → Устный контент»).</p>
       <div class="voice-tools">
         <button class="btn small" id="vAuto">Автоподбор</button>
         <span class="muted small" id="vCount"></span>
@@ -200,6 +212,7 @@
 </div>
 
 <script src="js/words.js"></script>
+<script src="js/words-es.js"></script>
 <script src="js/store.js"></script>
 <script src="js/voices.js"></script>
 <script src="js/sfx.js"></script>

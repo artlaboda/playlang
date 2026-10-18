@@ -3,18 +3,32 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const D = Store.data;
-  const CATS = window.CATEGORIES;
-  const CAT_BY_ID = Object.fromEntries(CATS.map(c => [c.id, c]));
-  const TIER = {};
-  for (const t of [1, 2]) window.WORD_TIERS[t].split(' ').forEach(w => { TIER[w] = t; });
-  const ALL_WORDS = CATS.flatMap(c => c.words.map(([w, ru]) => ({ w, ru, cat: c.id, tier: TIER[w] || 3 })));
-  const EXTRA_WORDS = window.EXTRA_WORDS.map(([w, ru, tier]) => ({ w, ru, cat: null, tier }));
-  const TR_WORDS = ALL_WORDS.concat(EXTRA_WORDS);
-  const SYN = {};
-  window.SYNONYMS.forEach(g => {
-    const ws = g.split(' ');
-    ws.forEach(a => { SYN[a] = SYN[a] || new Set(); ws.forEach(b => { if (b !== a) SYN[a].add(b); }); });
-  });
+  const LANGS = window.LANGS;
+
+  // Данные изучаемого языка; меняются при переключении языка в меню.
+  let LANG, CATS, CAT_BY_ID, ALL_WORDS, EXTRA_WORDS, TR_WORDS, SYN;
+  function loadLang(code) {
+    LANG = LANGS[code] || LANGS.en;
+    // В английском списки — строки через пробел, в испанском — массивы (в словах есть пробелы).
+    const list = x => (Array.isArray(x) ? x : x.split(' '));
+    const tier = {};
+    for (const t of [1, 2]) list(LANG.tiers[t]).forEach(w => { tier[w] = t; });
+    CATS = LANG.categories;
+    CAT_BY_ID = Object.fromEntries(CATS.map(c => [c.id, c]));
+    ALL_WORDS = CATS.flatMap(c => c.words.map(([w, ru]) => ({ w, ru, cat: c.id, tier: tier[w] || 3 })));
+    EXTRA_WORDS = LANG.extra.map(([w, ru, t]) => ({ w, ru, cat: null, tier: t }));
+    TR_WORDS = ALL_WORDS.concat(EXTRA_WORDS);
+    SYN = {};
+    LANG.synonyms.forEach(g => {
+      const ws = list(g);
+      ws.forEach(a => { SYN[a] = SYN[a] || new Set(); ws.forEach(b => { if (b !== a) SYN[a].add(b); }); });
+    });
+    Store.setLang(LANG.code);
+    Voices.setLang(LANG.speech);
+    const vb = D.settings.voicesBy || (D.settings.voicesBy = {});
+    Voices.enabled = vb[LANG.code] !== undefined ? vb[LANG.code] : (LANG.code === 'en' ? D.settings.voices : null);
+  }
+  loadLang(D.settings.lang);
   const TIER_LABEL = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1' };
   const TR_COLORS = ['#f2a65a', '#7fb7e8', '#9ad48a', '#c792ea', '#ef6f6c'];
   const MODES = { category: 'Категории', translate: 'Перевод' };
@@ -134,7 +148,7 @@
   const glyphs = [];
   function initBg() {
     glyphs.length = 0;
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const letters = LANG.letters;
     const n = Math.round(Math.min(60, W * H / 18000));
     for (let i = 0; i < n; i++) glyphs.push({ ch: pick(letters), x: rand(0, W), y: rand(-H, H), z: rand(0.3, 1), r: rand(-0.4, 0.4) });
   }
@@ -186,7 +200,9 @@
   }
 
   // ---------- HUD ----------
-  function best() { return D.bests[G.mode] || 0; }
+  // Рекорды отдельно для каждого языка и режима; у английского ключи без префикса.
+  function bestKey() { return (LANG.code === 'en' ? '' : LANG.code + ':') + G.mode; }
+  function best() { return D.bests[bestKey()] || 0; }
   function mult() { return Math.min(5, 1 + Math.floor(G.combo / 5)); }
   function renderHud() {
     $('score').textContent = fmt(G.score);
@@ -237,10 +253,10 @@
       const b = el('button', 'basket' + (anim ? ' ' + anim : ''));
       b.style.setProperty('--c', c.color);
       if (anim) b.style.animationDelay = (i * (anim === 'enter' ? 0.06 : 0.03)) + 's';
-      if (c.en) {
-        b.setAttribute('aria-label', `${c.en} — ${c.ru}`);
+      if (c.name) {
+        b.setAttribute('aria-label', `${c.name} — ${c.ru}`);
         b.innerHTML = `<span class="key">${i + 1}</span><span class="ic">${c.icon}</span>` +
-          `<span class="plate"><span class="en" lang="en" data-fit="line">${esc(c.en)}</span><span class="ru" data-fit="line">${esc(c.ru)}</span></span>`;
+          `<span class="plate"><span class="en" lang="${LANG.code}" data-fit="line">${esc(c.name)}</span><span class="ru" data-fit="line">${esc(c.ru)}</span></span>`;
       } else {
         b.setAttribute('aria-label', c.ru);
         b.innerHTML = `<span class="key">${i + 1}</span><span class="plate"><span class="tr" data-fit="multi">${esc(hyphenateRu(c.ru))}</span></span>`;
@@ -286,11 +302,20 @@
       const shrink = (min, lines) => {
         t.style.fontSize = '';
         let size = parseFloat(getComputedStyle(t).fontSize);
-        const tooBig = () => t.scrollWidth > t.clientWidth + 1 || (multi && t.scrollHeight > size * 1.15 * lines + 3);
+        const tooBig = () => t.scrollWidth > t.clientWidth + 1 || (lines > 1 && t.scrollHeight > size * 1.15 * lines + 3);
         while (size > min && tooBig()) { size -= 0.5; t.style.fontSize = size + 'px'; }
         return !tooBig();
       };
-      if (!multi) { shrink(10, 1); return; }
+      if (!multi) {
+        // Название темы: в одну строку, а длинное («Frutas y verduras») — в две.
+        // Если широкий заголовочный шрифт не влезает — берём более узкий.
+        t.classList.remove('wrap', 'narrow');
+        if (shrink(11, 1)) return;
+        t.classList.add('narrow');
+        if (shrink(11, 1)) return;
+        t.classList.add('wrap'); shrink(10, 2);
+        return;
+      }
       t.classList.add('nohy');
       if (shrink(13, 3)) return;
       t.classList.remove('nohy');
@@ -385,6 +410,7 @@
 
     const node = el('div', 'word' + (golden ? ' golden' : ''));
     node.textContent = e.w;
+    node.lang = LANG.code;
     if (golden) node.appendChild(el('span', 'tag', '✦'));
     if (power) node.appendChild(el('span', 'tag ' + power, POWERS[power].tag));
     field.appendChild(node);
@@ -587,7 +613,7 @@
     const cat = e.cat && CAT_BY_ID[e.cat];
     const t = el('div', 'reveal' + (ok ? '' : ' bad'));
     t.innerHTML = `<div class="rv-en">${esc(e.w)}</div><div class="rv-ru">${esc(e.ru)}</div>` +
-      (cat ? `<div class="rv-cat">${cat.icon} ${esc(cat.en)} · ${esc(cat.ru)}</div>` : `<div class="rv-cat">${TIER_LABEL[e.tier]}</div>`) +
+      (cat ? `<div class="rv-cat">${cat.icon} ${esc(cat.name)} · ${esc(cat.ru)}</div>` : `<div class="rv-cat">${TIER_LABEL[e.tier]}</div>`) +
       (ok ? '' : '<div class="rv-note">запомни</div>');
     field.appendChild(t);
     setTimeout(() => t.remove(), ok ? 1500 : 1800);
@@ -662,13 +688,13 @@
         `<span class="bcat" style="--c:${TR_COLORS[1]};animation-delay:.1s">Слова ${lvl}</span>`;
     } else {
       G.baskets = chooseCategories(basketCount(G.level));
-      $('lbCats').innerHTML = G.baskets.map((c, i) => `<span class="bcat" style="--c:${c.color};animation-delay:${0.15 + i * 0.08}s">${c.icon} ${esc(c.en)}<small>${esc(c.ru)}</small></span>`).join('');
+      $('lbCats').innerHTML = G.baskets.map((c, i) => `<span class="bcat" style="--c:${c.color};animation-delay:${0.15 + i * 0.08}s">${c.icon} ${esc(c.name)}<small>${esc(c.ru)}</small></span>`).join('');
     }
     show('levelBanner');
     renderBaskets('enter');
     renderHud();
-    // Озвучиваем названия корзин — тоже английские слова.
-    if (G.mode === 'category') Voices.speakOnce(G.baskets.map(c => c.en).join('. ') + '.');
+    // Озвучиваем названия корзин — это тоже слова изучаемого языка.
+    if (G.mode === 'category') Voices.speakOnce(G.baskets.map(c => c.name).join('. ') + '.');
     later(startLevel, 2600);
   }
   function startLevel() {
@@ -732,7 +758,7 @@
 
     const prevBest = best();
     const record = G.score > prevBest;
-    D.bests[G.mode] = Math.max(prevBest, G.score);
+    D.bests[bestKey()] = Math.max(prevBest, G.score);
     D.bestCombo = Math.max(D.bestCombo, G.bestCombo);
     D.bestLevel = Math.max(D.bestLevel, G.level);
     const xpGain = G.correct * 2 + G.golden * 5 + (G.level - 1) * 10 + Math.floor(G.bestCombo / 5) * 3;
@@ -834,6 +860,7 @@
     $('mBest').textContent = fmt(best());
     $('hudBest').textContent = fmt(best());
     renderModeSwitches();
+    renderLangSwitches();
     renderVoiceLine();
   }
   function toMenu() {
@@ -853,6 +880,22 @@
       : 'Корзины — темы: животные, еда, профессии… Положи слово в его тему.';
     document.querySelectorAll('.mode-hint').forEach(h => { h.textContent = hint; });
   }
+  function renderLangSwitches() {
+    document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === LANG.code)));
+  }
+  function setLang(code) {
+    if (!LANGS[code] || code === LANG.code) return;
+    D.settings.lang = code;
+    Store.save();
+    loadLang(code);
+    initBg();
+    G.baskets = G.mode === 'translate' ? placeholderBaskets(3) : chooseCategories(3);
+    renderBaskets(false);
+    renderMenu();
+    if (!$('voicesPanel').hidden) renderVoices();
+    Sfx.unlock();
+    Voices.speakOnce(code === 'es' ? '¡Hola! Vamos a jugar.' : 'Hello! Let’s play.');
+  }
   function setMode(m) {
     if (!MODES[m]) return;
     D.settings.mode = m;
@@ -866,7 +909,7 @@
     const act = Voices.active();
     if (!act.length) {
       line.innerHTML = Voices.ready
-        ? 'Английские голоса не найдены: слова будет читать голос по умолчанию. Лучше всего играть в Chrome, Edge или Safari.'
+        ? `Голоса (${LANG.ru}) не найдены: слова будет читать голос по умолчанию. Лучше всего играть в Chrome, Edge или Safari.`
         : 'Ищем голоса…';
       return;
     }
@@ -883,10 +926,10 @@
     const list = $('voiceList');
     list.innerHTML = '';
     const active = new Set(Voices.active().map(x => x.name));
-    $('vCount').textContent = Voices.list.length ? `Английских голосов: ${Voices.list.length}, выбрано: ${active.size}` : '';
+    $('vCount').textContent = Voices.list.length ? `Голосов (${LANG.ru}): ${Voices.list.length}, выбрано: ${active.size}` : '';
     if (!Voices.supported || !Voices.list.length) {
       list.appendChild(el('div', 'empty', Voices.supported
-        ? 'Английские голоса не найдены. Установите их в настройках системы (язык и речь) или откройте игру в Chrome / Edge.'
+        ? `Голоса (${LANG.ru}) не найдены. Установите их в настройках системы (язык и речь) или откройте игру в Chrome / Edge.`
         : 'Браузер не поддерживает синтез речи. Попробуйте Chrome, Edge или Safari.'));
       return;
     }
@@ -900,7 +943,7 @@
         const cur = new Set(Voices.active().map(v => v.name));
         if (ev.target.checked) cur.add(x.name); else cur.delete(x.name);
         Voices.enabled = cur.size ? [...cur] : null;
-        D.settings.voices = Voices.enabled;
+        D.settings.voicesBy[LANG.code] = Voices.enabled;
         Store.save();
         renderVoices(); renderVoiceLine();
         if (ev.target.checked) Voices.speakOnce(pick(ALL_WORDS).w, x);
@@ -916,7 +959,7 @@
 
   function bindSettings() {
     const s = D.settings;
-    Voices.enabled = s.voices; Voices.rate = s.rate; Voices.repeats = s.repeats;
+    Voices.rate = s.rate; Voices.repeats = s.repeats;
     Sfx.setVolume(s.sfx);
     const rate = $('sRate'), rep = $('sRep'), sfx = $('sSfx');
     rate.value = s.rate; rep.value = s.repeats; sfx.value = s.sfx;
@@ -927,11 +970,11 @@
     };
     out();
     rate.addEventListener('input', () => { s.rate = Voices.rate = Number(rate.value); out(); Store.save(); });
-    rate.addEventListener('change', () => Voices.speakOnce('pronunciation'));
+    rate.addEventListener('change', () => Voices.speakOnce(LANG.demo));
     rep.addEventListener('input', () => { s.repeats = Voices.repeats = Number(rep.value); out(); Store.save(); });
     sfx.addEventListener('input', () => { s.sfx = Number(sfx.value); Sfx.unlock(); Sfx.setVolume(s.sfx); out(); Store.save(); });
     sfx.addEventListener('change', () => Sfx.correct(3));
-    $('vAuto').addEventListener('click', () => { Voices.enabled = null; s.voices = null; Store.save(); renderVoices(); renderVoiceLine(); });
+    $('vAuto').addEventListener('click', () => { Voices.enabled = null; s.voicesBy[LANG.code] = null; Store.save(); renderVoices(); renderVoiceLine(); });
   }
 
   // ---------- Словарь ----------
@@ -943,7 +986,7 @@
     CATS.forEach(c => {
       const sec = el('div', 'dcat');
       const got = c.words.filter(([w]) => Store.stars(w) > 0).length;
-      sec.appendChild(el('h3', null, `${c.icon} ${esc(c.en)} <span>${got}/${c.words.length}</span>`));
+      sec.appendChild(el('h3', null, `${c.icon} ${esc(c.name)} <span>${got}/${c.words.length}</span>`));
       const chips = el('div', 'chips');
       c.words.forEach(([w, ru]) => {
         const st = Store.stars(w);
@@ -956,7 +999,7 @@
     });
     const sec = el('div', 'dcat');
     const got = EXTRA_WORDS.filter(e => Store.stars(e.w) > 0).length;
-    sec.appendChild(el('h3', null, `🎓 Advanced · режим «Перевод» <span>${got}/${EXTRA_WORDS.length}</span>`));
+    sec.appendChild(el('h3', null, `🎓 ${LANG.code === 'es' ? 'Avanzado' : 'Advanced'} · режим «Перевод» <span>${got}/${EXTRA_WORDS.length}</span>`));
     const chips = el('div', 'chips');
     EXTRA_WORDS.forEach(e => {
       const st = Store.stars(e.w);
@@ -988,6 +1031,7 @@
     }));
     $('levelBanner').addEventListener('pointerdown', () => { Sfx.unlock(); startLevel(); });
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
 
     window.addEventListener('keydown', e => {
       const k = e.key;

@@ -280,6 +280,8 @@ button { font: inherit; color: inherit; }
 }
 .basket .en, .basket .ru { display: block; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; text-align: center; }
 .basket .en { font: 700 clamp(11px, 2.8vw, 14px)/1.15 var(--f-display); }
+.basket .en.wrap, .basket .ru.wrap { white-space: normal; text-wrap: balance; }
+.basket .en.narrow { font-family: var(--f-body); font-weight: 700; letter-spacing: -0.01em; }
 .basket .ru { font: 500 clamp(10px, 2.5vw, 12px)/1.15 var(--f-body); color: #4d463d; }
 .basket .key {
   position: absolute; top: 16px; left: 12px;
@@ -391,6 +393,8 @@ h2 { margin: 0; font: 700 22px/1.2 var(--f-display); text-wrap: balance; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(245, 236, 217, 0.06); border: 1px solid var(--line); }
 .seg-b { min-height: 40px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; font: 700 14px/1 var(--f-display); color: var(--mist); }
 .seg-b[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+.lang-seg .seg-b { min-height: 44px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.lang-seg .fl { font-size: 20px; line-height: 1; }
 .mode-hint { margin: 0; font-size: 13px; color: var(--mist); min-height: 2.9em; }
 .settings-k { font: 700 12px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--mist); }
 .voice-line { margin: 0; font-size: 12px; color: var(--mist); text-align: center; }

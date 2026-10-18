@@ -1,4 +1,4 @@
-// Синтез речи: выбираем самые качественные английские голоса устройства
+// Синтез речи: выбираем самые качественные голоса изучаемого языка на устройстве
 // и произносим падающее слово по кругу разными голосами.
 (function () {
   const synth = window.speechSynthesis || null;
@@ -6,10 +6,20 @@
   // Новелти-голоса macOS и старые «роботы» — никогда не берём.
   const JUNK = /albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|kathy|ralph|princess|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|espeak|pico/i;
   // Хорошо звучащие системные голоса Apple / Windows / Android.
-  const GOOD_NAMES = /samantha|daniel|karen|moira|tessa|serena|ava|allison|tom|evan|zoe|nathan|susan|aria|jenny|guy|ryan|sonia|libby|natasha|william|clara|emma|brian|andrew|christopher|eric|michelle|steffan|ana|olivia|noah|joelle|isha|neerja|rishi|fiona|lee|kate|oliver|stephanie|catherine|gordon|arthur|martha/i;
+  const GOOD_NAMES = /samantha|daniel|karen|moira|tessa|serena|ava|allison|tom|evan|zoe|nathan|susan|aria|jenny|guy|ryan|sonia|libby|natasha|william|clara|emma|brian|andrew|christopher|eric|michelle|steffan|ana|olivia|noah|joelle|isha|neerja|rishi|fiona|lee|kate|oliver|stephanie|catherine|gordon|arthur|martha|m[oó]nica|paulina|jorge|juan|diego|marisol|ang[eé]lica|helena|laura|pablo|elvira|[aá]lvaro|dalia|luc[ií]a|marta|carlos|isabela|ximena|elena|gonzalo|camila|triana|irene|alonso|valentina|abril|arnau|elias|estrella|ximena|tom[aá]s|lorenzo|salom[eé]|renata/i;
 
-  const FLAGS = { US: '🇺🇸', GB: '🇬🇧', UK: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', IE: '🇮🇪', IN: '🇮🇳', NZ: '🇳🇿', ZA: '🇿🇦', SG: '🇸🇬', HK: '🇭🇰', PH: '🇵🇭', NG: '🇳🇬', KE: '🇰🇪', TZ: '🇹🇿', SC: '🏴' };
-  const ACCENTS = { US: 'американский', GB: 'британский', UK: 'британский', AU: 'австралийский', CA: 'канадский', IE: 'ирландский', IN: 'индийский', NZ: 'новозеландский', ZA: 'южноафриканский', SG: 'сингапурский' };
+  const FLAGS = {
+    US: '🇺🇸', GB: '🇬🇧', UK: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', IE: '🇮🇪', IN: '🇮🇳', NZ: '🇳🇿', ZA: '🇿🇦', SG: '🇸🇬', HK: '🇭🇰', PH: '🇵🇭', NG: '🇳🇬', KE: '🇰🇪', TZ: '🇹🇿',
+    ES: '🇪🇸', MX: '🇲🇽', AR: '🇦🇷', CO: '🇨🇴', CL: '🇨🇱', PE: '🇵🇪', VE: '🇻🇪', UY: '🇺🇾', CR: '🇨🇷', CU: '🇨🇺', DO: '🇩🇴', EC: '🇪🇨',
+    GT: '🇬🇹', HN: '🇭🇳', NI: '🇳🇮', PA: '🇵🇦', PR: '🇵🇷', PY: '🇵🇾', SV: '🇸🇻', BO: '🇧🇴', GQ: '🇬🇶',
+  };
+  // Акценты зависят от языка: es-US — это американский испанский, а не английский.
+  const ACCENTS = {
+    en: { US: 'американский', GB: 'британский', UK: 'британский', AU: 'австралийский', CA: 'канадский', IE: 'ирландский', IN: 'индийский', NZ: 'новозеландский', ZA: 'южноафриканский', SG: 'сингапурский', _: 'английский' },
+    es: { ES: 'кастильский (Испания)', MX: 'мексиканский', US: 'американский испанский', AR: 'аргентинский', CO: 'колумбийский', CL: 'чилийский', PE: 'перуанский', VE: 'венесуэльский', CU: 'кубинский', UY: 'уругвайский', _: 'латиноамериканский' },
+  };
+  // Основные варианты языка получают небольшой приоритет.
+  const PREFERRED = { en: ['US', 'GB'], es: ['ES', 'MX'] };
 
   function region(v) {
     const m = (v.lang || '').replace('_', '-').split('-');
@@ -26,7 +36,7 @@
     if (/^google/i.test(n)) s += 70;                  // Chrome сетевые голоса
     if (GOOD_NAMES.test(n)) s += 35;
     if (/compact/i.test(n)) s -= 40;
-    if (/^en-(US|GB)/i.test(v.lang.replace('_', '-'))) s += 10;
+    if ((PREFERRED[Voices.lang] || []).includes(region(v))) s += 10;
     return s;
   }
 
@@ -35,20 +45,21 @@
       .replace(/^Microsoft\s+/i, '')
       .replace(/\s+Online.*$/i, '')
       .replace(/\s*\((Natural|Enhanced|Premium)\)/ig, '')
-      .replace(/\s*-\s*English.*$/i, '')
+      .replace(/\s*-\s*(English|Spanish|Español|Espanol).*$/i, '')
       .replace(/\s*\(.*\)$/, '')
       .trim();
     if (/^google/i.test(v.name)) {
       const r = region(v);
       const g = /female/i.test(v.name) ? '♀' : /male/i.test(v.name) ? '♂' : '';
-      n = 'Google ' + (r || 'EN') + (g ? ' ' + g : '');
+      n = 'Google ' + (r || Voices.lang.toUpperCase()) + (g ? ' ' + g : '');
     }
     return n || v.name;
   }
 
   const Voices = {
     supported: !!synth && typeof window.SpeechSynthesisUtterance === 'function',
-    list: [],          // все английские голоса, отсортированы по качеству
+    lang: 'en',        // изучаемый язык: какие голоса берём
+    list: [],          // все голоса этого языка, отсортированы по качеству
     ready: false,      // true, когда браузер точно успел отдать список голосов
     enabled: null,     // имена выбранных голосов (null = автоподбор)
     rate: 0.95,
@@ -62,13 +73,15 @@
       if (!this.supported) return;
       const load = () => {
         const all = synth.getVoices() || [];
+        const re = new RegExp('^' + this.lang + '([-_]|$)', 'i');
         this.list = all
-          .filter(v => /^en([-_]|$)/i.test(v.lang))
+          .filter(v => re.test(v.lang))
           .map(v => ({ v, name: v.name, lang: v.lang, region: region(v), short: shortName(v), q: score(v) }))
           .filter(x => x.q > -1000)
           .sort((a, b) => b.q - a.q);
         this._listeners.forEach(fn => fn(this.list));
       };
+      this._load = load;
       load();
       if (typeof synth.addEventListener === 'function') synth.addEventListener('voiceschanged', load);
       else synth.onvoiceschanged = load;
@@ -78,6 +91,13 @@
     },
 
     onChange(fn) { this._listeners.push(fn); },
+
+    setLang(code) {
+      if (code === this.lang) return;
+      this.lang = code;
+      this.enabled = null;
+      if (this._load) this._load();
+    },
 
     // Автоподбор: лучшие голоса, но с разными акцентами и «семьями».
     autoPick(max = 5) {
@@ -110,7 +130,7 @@
     },
 
     flag(x) { return FLAGS[x.region] || '🌐'; },
-    accent(x) { return ACCENTS[x.region] || 'английский'; },
+    accent(x) { const a = ACCENTS[this.lang] || ACCENTS.en; return a[x.region] || a._; },
 
     stop() {
       this._token++;
@@ -121,7 +141,7 @@
     _say(text, x, rate, token, done) {
       if (token !== this._token) return;
       const u = new SpeechSynthesisUtterance(text);
-      if (x) { u.voice = x.v; u.lang = x.lang; } else u.lang = 'en-US';
+      if (x) { u.voice = x.v; u.lang = x.lang; } else u.lang = this.lang === 'es' ? 'es-ES' : 'en-US';
       u.rate = rate; u.pitch = 1; u.volume = 1;
       let finished = false;
       const finish = () => {

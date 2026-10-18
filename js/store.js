@@ -20,7 +20,8 @@
     ach: {},
     mastery: {},
     bests: { category: 0, translate: 0 },
-    settings: { voices: null, rate: 0.95, repeats: 4, sfx: 0.5, mode: 'category' },
+    // voices — выбранные голоса английского (старый формат), voicesBy — по языкам.
+    settings: { voices: null, voicesBy: {}, rate: 0.95, repeats: 4, sfx: 0.5, mode: 'category', lang: 'en' },
   });
 
   let data = defaults();
@@ -70,21 +71,30 @@
       return dayDiff(s.last, today()) <= 1 ? s.days : 0;
     },
 
-    mastery(word) { return data.mastery[word] || { c: 0, w: 0, t: 0 }; },
-    // 0..3 звезды: сколько раз подряд-ish слово разложено правильно.
+    // Освоение слов хранится отдельно для каждого языка: «pie» в английском и
+    // «el pie» в испанском — разные слова. Английские ключи без префикса (старые сохранения).
+    ns: '',
+    setLang(code) { this.ns = code === 'en' ? '' : code + ':'; },
+    mastery(word) { return data.mastery[this.ns + word] || { c: 0, w: 0, t: 0 }; },
+    // 0..3 звезды: насколько уверенно слово раскладывается (ошибки весят вдвое).
     stars(word) {
-      const m = data.mastery[word];
+      const m = data.mastery[this.ns + word];
       if (!m) return 0;
       const net = m.c - m.w * 2;
       return net >= 6 ? 3 : net >= 3 ? 2 : m.c > 0 ? 1 : 0;
     },
     markWord(word, ok) {
-      const m = data.mastery[word] || { c: 0, w: 0, t: 0 };
+      const key = this.ns + word;
+      const m = data.mastery[key] || { c: 0, w: 0, t: 0 };
       if (ok) m.c++; else m.w++;
       m.t = Date.now();
-      data.mastery[word] = m;
+      data.mastery[key] = m;
     },
-    learnedCount() { return Object.keys(data.mastery).filter(w => this.stars(w) >= 1).length; },
+    learnedCount() {
+      return Object.keys(data.mastery)
+        .filter(k => (this.ns ? k.startsWith(this.ns) : !k.includes(':')))
+        .filter(k => this.stars(k.slice(this.ns.length)) >= 1).length;
+    },
 
     unlock(id) {
       if (data.ach[id]) return false;

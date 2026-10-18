@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Словопад</title>
+<meta name="description" content="Аркада для изучения английского: слова падают, их произносят разные голоса, а ты раскладываешь их по корзинам.">
+<meta name="theme-color" content="#0b1d22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Onest:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="bg" aria-hidden="true"></canvas>
+
+  <header class="hud" id="hud">
+    <div class="hud-score">
+      <div class="score" id="score">0</div>
+      <div class="sub">рекорд <span id="hudBest">0</span></div>
+    </div>
+    <div class="hud-combo" id="comboBox">
+      <div class="mult" id="mult">×1</div>
+      <div class="sub" id="comboTxt">комбо 0</div>
+    </div>
+    <div class="hud-right">
+      <div class="lives" id="lives" aria-label="Жизни"></div>
+      <div class="sub">уровень <b id="lvl">1</b></div>
+    </div>
+    <button class="icon-btn" id="pauseBtn" aria-label="Пауза">❚❚</button>
+    <div class="lvlbar"><i id="lvlFill"></i></div>
+    <div class="buffs" id="buffs"></div>
+  </header>
+
+  <main class="field" id="field">
+    <div class="speaking" id="speaking" aria-live="polite">
+      <span class="wave"><i></i><i></i><i></i><i></i></span>
+      <span id="spkName"></span>
+    </div>
+  </main>
+
+  <div class="baskets" id="baskets"></div>
+
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="toasts" id="toasts"></div>
+
+  <!-- Главное меню -->
+  <section class="screen" id="menu">
+    <div class="panel menu-panel">
+      <h1 class="logo" aria-label="Словопад">
+        <span class="logo-row">СЛОВО</span><span class="logo-row drop">ПАД</span>
+      </h1>
+      <p class="tagline">Слово падает. Голоса его произносят. Ты ловишь его в нужную корзину.</p>
+
+      <div class="profile">
+        <div class="badge" id="pLvl">1</div>
+        <div class="profile-main">
+          <div class="profile-title"><b id="pTitle">Новичок</b> <span class="muted" id="pXp">0 / 60 XP</span></div>
+          <div class="xpbar"><i id="pXpFill"></i></div>
+        </div>
+      </div>
+
+      <div class="stats3">
+        <div class="stat"><div class="stat-v" id="mStreak">0</div><div class="stat-k">дней подряд</div></div>
+        <div class="stat goal">
+          <div class="stat-v" id="mGoal">0/40</div><div class="stat-k">цель дня</div>
+          <div class="goalbar"><i id="mGoalFill"></i></div>
+        </div>
+        <div class="stat"><div class="stat-v" id="mBest">0</div><div class="stat-k">рекорд</div></div>
+      </div>
+
+      <button class="btn primary big" id="playBtn">Играть <kbd>Enter</kbd></button>
+      <div class="row-btns">
+        <button class="btn" id="voicesBtn">Голоса</button>
+        <button class="btn" id="dictBtn">Словарь</button>
+        <button class="btn" id="helpBtn">Как играть</button>
+      </div>
+      <p class="voice-line" id="voiceLine"></p>
+    </div>
+  </section>
+
+  <!-- Как играть -->
+  <section class="screen" id="help" hidden>
+    <div class="panel">
+      <h2>Как играть</h2>
+      <ul class="howto">
+        <li><b>Слушай.</b> Пока слово падает, его по очереди произносят разные голоса: американский, британский, австралийский…</li>
+        <li><b>Лови.</b> Нажми на корзину, к которой относится слово. Или веди слово пальцем, стрелками <kbd>←</kbd> <kbd>→</kbd> и роняй <kbd>↓</kbd> / <kbd>Пробел</kbd>. Цифры <kbd>1</kbd>–<kbd>5</kbd> бросают сразу в корзину.</li>
+        <li><b>Быстрее — дороже.</b> Чем раньше бросишь, тем больше бонус за скорость.</li>
+        <li><b>Комбо.</b> Каждые 5 верных слов подряд повышают множитель, до ×5.</li>
+        <li><b>Бонусы.</b> <span class="pw">✦</span> золотое слово ×3, <span class="pw">❄</span> замедление, <span class="pw">×2</span> двойные очки, <span class="pw">♥</span> жизнь, <span class="pw">◈</span> щит от ошибки.</li>
+        <li><b>Ошибки</b> отнимают жизнь, а слово вернётся позже, чтобы ты его запомнил.</li>
+      </ul>
+      <button class="btn primary" data-close>Понятно</button>
+    </div>
+  </section>
+
+  <!-- Голоса и настройки -->
+  <section class="screen" id="voicesPanel" hidden>
+    <div class="panel wide">
+      <h2>Голоса</h2>
+      <p class="muted small">Игра сама выбирает самые чёткие голоса на устройстве и чередует акценты. Можно отметить свои. Лучше всего звучат голоса <b>Natural</b> в Microsoft Edge, <b>Google</b> в Chrome и <b>Premium/Enhanced</b> в Safari (их можно скачать в настройках системы: «Универсальный доступ → Устный контент»).</p>
+      <div class="voice-tools">
+        <button class="btn small" id="vAuto">Автоподбор</button>
+        <span class="muted small" id="vCount"></span>
+      </div>
+      <div class="voice-list" id="voiceList"></div>
+      <div class="settings">
+        <label for="sRate">Скорость речи <output id="sRateOut"></output></label>
+        <input type="range" id="sRate" min="0.6" max="1.2" step="0.05">
+        <label for="sRep">Повторов за слово <output id="sRepOut"></output></label>
+        <input type="range" id="sRep" min="1" max="6" step="1">
+        <label for="sSfx">Громкость эффектов <output id="sSfxOut"></output></label>
+        <input type="range" id="sSfx" min="0" max="1" step="0.1">
+      </div>
+      <button class="btn primary" data-close>Готово</button>
+    </div>
+  </section>
+
+  <!-- Словарь -->
+  <section class="screen" id="dictPanel" hidden>
+    <div class="panel wide">
+      <h2>Словарь</h2>
+      <p class="muted small" id="dictSum"></p>
+      <div class="dict" id="dict"></div>
+      <button class="btn primary" data-close>Закрыть</button>
+    </div>
+  </section>
+
+  <!-- Баннер уровня -->
+  <section class="screen soft" id="levelBanner" hidden>
+    <div class="banner">
+      <div class="banner-k" id="lbKicker">Уровень</div>
+      <div class="banner-n" id="lbNum">1</div>
+      <div class="banner-extra" id="lbExtra"></div>
+      <div class="banner-cats" id="lbCats"></div>
+      <div class="muted small">Нажми, чтобы начать</div>
+    </div>
+  </section>
+
+  <!-- Пауза -->
+  <section class="screen" id="pause" hidden>
+    <div class="panel">
+      <h2>Пауза</h2>
+      <button class="btn primary big" id="resumeBtn">Продолжить</button>
+      <div class="row-btns">
+        <button class="btn" id="pVoicesBtn">Голоса</button>
+        <button class="btn" id="quitBtn">Закончить игру</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Конец игры -->
+  <section class="screen" id="over" hidden>
+    <div class="panel wide">
+      <div class="over-kicker" id="oKicker">Игра окончена</div>
+      <div class="over-score" id="oScore">0</div>
+      <div class="over-near" id="oNear"></div>
+      <div class="stats4">
+        <div class="stat"><div class="stat-v" id="oWords">0</div><div class="stat-k">слов</div></div>
+        <div class="stat"><div class="stat-v" id="oAcc">0%</div><div class="stat-k">точность</div></div>
+        <div class="stat"><div class="stat-v" id="oCombo">0</div><div class="stat-k">макс. комбо</div></div>
+        <div class="stat"><div class="stat-v" id="oLevel">1</div><div class="stat-k">уровень</div></div>
+      </div>
+      <div class="profile">
+        <div class="badge" id="oPLvl">1</div>
+        <div class="profile-main">
+          <div class="profile-title"><b id="oPTitle"></b> <span class="muted" id="oXp"></span></div>
+          <div class="xpbar"><i id="oXpFill"></i></div>
+        </div>
+      </div>
+      <div class="over-goal" id="oGoal"></div>
+      <div class="review" id="oReview"></div>
+      <div class="row-btns">
+        <button class="btn primary big" id="againBtn">Ещё раз <kbd>Enter</kbd></button>
+        <button class="btn" id="menuBtn">Меню</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="js/words.js"></script>
+<script src="js/store.js"></script>
+<script src="js/voices.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

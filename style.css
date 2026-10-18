@@ -166,6 +166,13 @@ button { font: inherit; color: inherit; }
   content: ""; position: absolute; top: 6px; left: 50%; width: 6px; height: 6px; margin-left: -3px;
   border-radius: 50%; background: rgba(28, 26, 23, 0.25);
 }
+/* Фраза — шире и в несколько строк */
+.word.phrase {
+  max-width: min(88%, 560px);
+  white-space: normal; text-align: center; text-wrap: balance;
+  font-size: clamp(17px, 4.4vw, 24px); line-height: 1.2;
+  padding: 16px 18px 14px;
+}
 .word.talking { box-shadow: 0 0 0 3px rgba(95, 224, 176, 0.65), 0 18px 36px rgba(0, 0, 0, 0.35); }
 .word.danger { animation: danger 0.4s infinite alternate; }
 @keyframes danger { to { box-shadow: 0 0 0 4px rgba(255, 107, 90, 0.8), 0 18px 36px rgba(0,0,0,0.35); } }
@@ -225,7 +232,10 @@ button { font: inherit; color: inherit; }
 .rv-en { font: 700 clamp(26px, 7vw, 40px)/1.1 var(--f-display); color: var(--paper); }
 .rv-ru { font: 700 clamp(22px, 6vw, 34px)/1.15 var(--f-body); color: var(--mint); margin-top: 6px; text-wrap: balance; }
 .reveal.bad .rv-ru { color: var(--saffron); }
-.rv-cat { font-size: 12px; color: var(--mist); margin-top: 8px; letter-spacing: 0.04em; }
+.reveal.phrase .rv-en { font-size: clamp(19px, 5vw, 28px); text-wrap: balance; }
+.reveal.phrase .rv-ru { font-size: clamp(17px, 4.6vw, 24px); }
+.rv-gram { display: inline-block; padding: 2px 8px; margin-right: 4px; border-radius: 6px; background: var(--saffron); color: var(--ink); font-weight: 700; letter-spacing: 0; }
+.rv-cat { text-wrap: balance; font-size: 12px; color: var(--mist); margin-top: 8px; letter-spacing: 0.04em; }
 .rv-note { font: 700 11px/1 var(--f-body); color: var(--coral); text-transform: uppercase; letter-spacing: 0.2em; margin-top: 8px; }
 @keyframes reveal {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
@@ -296,6 +306,8 @@ button { font: inherit; color: inherit; }
   overflow-wrap: normal; word-break: normal; hyphens: manual;
 }
 .basket .tr.nohy { hyphens: none; }
+.baskets.phmode .basket { height: clamp(118px, 21vh, 170px); }
+.baskets.phmode .basket .tr { font-size: clamp(14px, 4vw, 19px); }
 .basket.swap { animation: swap 0.28s backwards; }
 @keyframes swap { from { opacity: 0.2; transform: translateY(10px) scale(0.96); } }
 .basket:hover { filter: brightness(1.08); }
@@ -390,7 +402,7 @@ h2 { margin: 0; font: 700 22px/1.2 var(--f-display); text-wrap: balance; }
 .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .row-btns .btn { flex: 1 1 0; }
 .mode { display: flex; flex-direction: column; gap: 8px; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(245, 236, 217, 0.06); border: 1px solid var(--line); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(245, 236, 217, 0.06); border: 1px solid var(--line); }
 .seg-b { min-height: 40px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; font: 700 14px/1 var(--f-display); color: var(--mist); }
 .seg-b[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
 .lang-seg .seg-b { min-height: 44px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }

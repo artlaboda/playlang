@@ -6,7 +6,7 @@
   const LANGS = window.LANGS;
 
   // Данные изучаемого языка; меняются при переключении языка в меню.
-  let LANG, CATS, CAT_BY_ID, ALL_WORDS, EXTRA_WORDS, TR_WORDS, SYN;
+  let LANG, CATS, CAT_BY_ID, ALL_WORDS, EXTRA_WORDS, TR_WORDS, SYN, PHRASES, PH_GROUP;
   function loadLang(code) {
     LANG = LANGS[code] || LANGS.en;
     // В английском списки — строки через пробел, в испанском — массивы (в словах есть пробелы).
@@ -18,6 +18,9 @@
     ALL_WORDS = CATS.flatMap(c => c.words.map(([w, ru]) => ({ w, ru, cat: c.id, tier: tier[w] || 3 })));
     EXTRA_WORDS = LANG.extra.map(([w, ru, t]) => ({ w, ru, cat: null, tier: t }));
     TR_WORDS = ALL_WORDS.concat(EXTRA_WORDS);
+    // Фразы: cat — конструкция (Present Perfect, subjuntivo…), по ней берутся похожие ловушки.
+    PH_GROUP = Object.fromEntries((LANG.phrases || []).map(g => [g.id, g]));
+    PHRASES = (LANG.phrases || []).flatMap(g => g.items.map(([w, ru]) => ({ w, ru, cat: g.id, tier: g.tier, phrase: true })));
     SYN = {};
     LANG.synonyms.forEach(g => {
       const ws = list(g);
@@ -30,8 +33,13 @@
   }
   loadLang(D.settings.lang);
   const TIER_LABEL = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1' };
+  const PH_TIER_LABEL = { 1: 'A1', 2: 'A1+', 3: 'A2', 4: 'A2+', 5: 'B1', 6: 'B2' };
   const TR_COLORS = ['#f2a65a', '#7fb7e8', '#9ad48a', '#c792ea', '#ef6f6c'];
-  const MODES = { category: 'Категории', translate: 'Перевод' };
+  const MODES = { category: 'Категории', translate: 'Перевод', phrases: 'Фразы' };
+  // Режимы, где корзины — переводы (слова или фразы).
+  const isTr = () => G.mode === 'translate' || G.mode === 'phrases';
+  const bank = () => (G.mode === 'phrases' ? PHRASES : TR_WORDS);
+  const tierLabel = (e) => (e.phrase ? PH_TIER_LABEL : TIER_LABEL)[e.tier];
   const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const WORDS_PER_LEVEL = 8;
@@ -114,7 +122,11 @@
     const fr = field.getBoundingClientRect();
     centers = [...basketsEl.children].map(b => { const r = b.getBoundingClientRect(); return r.left - fr.left + r.width / 2; });
   }
-  function maxBaskets() { return W < 520 ? 4 : 5; }
+  // Во фразах переводы длинные, поэтому корзин меньше.
+  function maxBaskets() {
+    if (G.mode === 'phrases') return W < 520 ? 3 : 4;
+    return W < 520 ? 4 : 5;
+  }
   // Ступени сложности. За уровень меняется что-то одно: добавляется корзина ИЛИ
   // слова становятся сложнее, и тогда скорость падения возвращается к спокойной.
   // Ускоряется игра только внутри ступени, пока ничего другого не меняется.
@@ -122,10 +134,16 @@
     [2, 1, 1], [2, 1, 1], [3, 1, 1], [3, 1, 1], [3, 1, 2], [3, 1, 2], [4, 1, 2], [4, 1, 2],
     [4, 2, 3], [4, 2, 3], [5, 2, 3], [5, 2, 3], [5, 3, 4], [5, 3, 4], [5, 4, 5],
   ];
+  // Фразы: от «Hello!» и «I'm tired.» до условных предложений и косвенной речи.
+  const PH_STAGES = [
+    [2, 1, 1], [2, 1, 1], [3, 1, 1], [3, 1, 2], [3, 2, 2], [3, 2, 3], [3, 3, 3], [3, 3, 4],
+    [4, 3, 4], [4, 4, 4], [4, 4, 5], [4, 5, 5], [4, 5, 6], [4, 6, 6],
+  ];
   const CAT_STAGES = [3, 3, 3, 4, 4, 4, 5];
   function stageRow(level) {
-    if (G.mode === 'translate') {
-      const r = TR_STAGES[Math.min(level, TR_STAGES.length) - 1];
+    if (isTr()) {
+      const T = G.mode === 'phrases' ? PH_STAGES : TR_STAGES;
+      const r = T[Math.min(level, T.length) - 1];
       return { b: Math.min(maxBaskets(), r[0]), lo: r[1], hi: r[2] };
     }
     return { b: Math.min(maxBaskets(), CAT_STAGES[Math.min(level, CAT_STAGES.length) - 1]), lo: 1, hi: 3 };
@@ -248,7 +266,8 @@
   // anim: 'enter' — въезд снизу (новый уровень), 'swap' — быстрая смена надписей.
   function renderBaskets(anim) {
     basketsEl.innerHTML = '';
-    basketsEl.classList.toggle('trmode', G.mode === 'translate');
+    basketsEl.classList.toggle('trmode', isTr());
+    basketsEl.classList.toggle('phmode', G.mode === 'phrases');
     G.baskets.forEach((c, i) => {
       const b = el('button', 'basket' + (anim ? ' ' + anim : ''));
       b.style.setProperty('--c', c.color);
@@ -316,10 +335,12 @@
         t.classList.add('wrap'); shrink(10, 2);
         return;
       }
+      // Фраза-перевод длиннее слова: разрешаем больше строк.
+      const ph = G.mode === 'phrases';
       t.classList.add('nohy');
-      if (shrink(13, 3)) return;
+      if (shrink(ph ? 12 : 13, ph ? 5 : 3)) return;
       t.classList.remove('nohy');
-      shrink(12, 4);
+      shrink(ph ? 11 : 12, ph ? 6 : 4);
     });
   }
   function placeholderBaskets(n) {
@@ -330,12 +351,14 @@
     const [lo, hi] = tierRange(G.level);
     const chosen = [e];
     const clash = x => x.w === e.w || chosen.some(c => c.ru === x.ru || c.w === x.w || (SYN[c.w] && SYN[c.w].has(x.w)));
-    const sameCat = TR_WORDS.filter(x => e.cat && x.cat === e.cat && x.tier >= lo - 1 && x.tier <= hi + 1);
-    const near = TR_WORDS.filter(x => x.tier >= lo - 1 && x.tier <= hi + 1);
+    const B = bank();
+    const sameCat = B.filter(x => e.cat && x.cat === e.cat && x.tier >= lo - 1 && x.tier <= hi + 1);
+    const near = B.filter(x => x.tier >= lo - 1 && x.tier <= hi + 1);
     // Ловушки из той же темы — только когда слова уже не начальные.
-    const share = hi >= 4 ? 0.5 : hi >= 3 ? 0.3 : 0.1;
+    // Во фразах ловушки той же конструкции учат различать смысл, а не форму.
+    const share = G.mode === 'phrases' ? (hi >= 4 ? 0.6 : hi >= 2 ? 0.4 : 0.15) : hi >= 4 ? 0.5 : hi >= 3 ? 0.3 : 0.1;
     for (let tries = 0; chosen.length < n && tries < 300; tries++) {
-      const src = tries > 200 ? TR_WORDS : (Math.random() < share && sameCat.length > n ? sameCat : near);
+      const src = tries > 200 ? B : (Math.random() < share && sameCat.length > n ? sameCat : near);
       const x = pick(src);
       if (!clash(x)) chosen.push(x);
     }
@@ -356,11 +379,13 @@
   function nextEntry() {
     G.review.forEach(r => r.due--);
     let pool;
-    if (G.mode === 'translate') {
+    if (isTr()) {
       const ri = G.review.findIndex(r => r.due <= 0);
       if (ri >= 0) return G.review.splice(ri, 1)[0].e;
       const [lo, hi] = tierRange(G.level);
-      pool = TR_WORDS.filter(e => e.tier >= lo && e.tier <= hi && !G.recent.includes(e.w));
+      const inTier = bank().filter(e => e.tier >= lo && e.tier <= hi);
+      pool = inTier.filter(e => !G.recent.includes(e.w));
+      if (!pool.length) pool = inTier;
     } else {
       const ids = new Set(G.baskets.map(c => c.id));
       const ri = G.review.findIndex(r => r.due <= 0 && ids.has(r.e.cat));
@@ -378,10 +403,16 @@
   // Чем больше корзин и сложнее слова, тем больше времени на чтение вариантов.
   function fallDuration(entry) {
     const st = stage(G.level);
-    const tr = G.mode === 'translate';
-    const base = tr ? 6.2 + 0.9 * (st.b - 2) + 0.5 * (st.hi - 1) : 6.6 + 0.4 * (st.b - 3);
-    let d = Math.max(tr ? 3.6 : 2.8, base * Math.pow(0.9, Math.min(st.step, 6)));
-    d += entry.w.length * 0.05;
+    let d;
+    if (G.mode === 'phrases') {
+      // Фразу нужно дослушать и прочитать все варианты: время растёт с длиной.
+      const base = 8 + 1.4 * (st.b - 2) + 0.4 * (st.hi - 1);
+      d = Math.max(6, base * Math.pow(0.92, Math.min(st.step, 5))) + entry.w.split(' ').length * 0.35;
+    } else {
+      const tr = G.mode === 'translate';
+      const base = tr ? 6.2 + 0.9 * (st.b - 2) + 0.5 * (st.hi - 1) : 6.6 + 0.4 * (st.b - 3);
+      d = Math.max(tr ? 3.6 : 2.8, base * Math.pow(0.9, Math.min(st.step, 6))) + entry.w.length * 0.05;
+    }
     d *= 1 + G.ease;
     if (G.buffs.slow > 0) d *= 1.6;
     return d;
@@ -392,7 +423,7 @@
     if (G.state !== 'playing') return;
     const e = nextEntry();
     G.recent.push(e.w); if (G.recent.length > 12) G.recent.shift();
-    if (G.mode === 'translate') {
+    if (isTr()) {
       G.baskets = translationBaskets(e, basketCount(G.level));
       renderBaskets('swap');
     }
@@ -408,7 +439,7 @@
       }
     }
 
-    const node = el('div', 'word' + (golden ? ' golden' : ''));
+    const node = el('div', 'word' + (golden ? ' golden' : '') + (e.phrase ? ' phrase' : ''));
     node.textContent = e.w;
     node.lang = LANG.code;
     if (golden) node.appendChild(el('span', 'tag', '✦'));
@@ -418,7 +449,7 @@
 
     G.word = {
       e, node, ww, wh, golden, power,
-      answer: G.mode === 'translate' ? e.w : e.cat,
+      answer: isTr() ? e.w : e.cat,
       t: 0, dur: fallDuration(e), col: null,
       x: FW / 2, y: -wh, rot: rand(-4, 4),
       state: 'falling',
@@ -429,7 +460,9 @@
   }
 
   function place(w) {
-    const sway = REDUCED ? 0 : Math.sin(w.t * 9) * 1.5;
+    const sway = REDUCED ? 0 : Math.sin(w.t * 9) * (w.e.phrase ? 0.6 : 1.5);
+    // Широкая карточка-фраза не должна вылезать за края поля.
+    w.x = Math.max(w.ww / 2 + 6, Math.min(FW - w.ww / 2 - 6, w.x));
     w.node.style.transform = `translate(${w.x - w.ww / 2}px, ${w.y}px) rotate(${w.rot + sway}deg)`;
   }
 
@@ -610,10 +643,14 @@
   // Крупная карточка «слово — перевод» в центре поля: момент запоминания.
   function showReveal(e, ok) {
     field.querySelectorAll('.reveal').forEach(t => t.remove());
-    const cat = e.cat && CAT_BY_ID[e.cat];
-    const t = el('div', 'reveal' + (ok ? '' : ' bad'));
-    t.innerHTML = `<div class="rv-en">${esc(e.w)}</div><div class="rv-ru">${esc(e.ru)}</div>` +
-      (cat ? `<div class="rv-cat">${cat.icon} ${esc(cat.name)} · ${esc(cat.ru)}</div>` : `<div class="rv-cat">${TIER_LABEL[e.tier]}</div>`) +
+    const cat = !e.phrase && e.cat && CAT_BY_ID[e.cat];
+    const grp = e.phrase && PH_GROUP[e.cat];
+    const t = el('div', 'reveal' + (ok ? '' : ' bad') + (e.phrase ? ' phrase' : ''));
+    // Для фразы подписываем конструкцию: так видно, какая грамматика за ней стоит.
+    const info = cat ? `${cat.icon} ${esc(cat.name)} · ${esc(cat.ru)}`
+      : grp ? `<span class="rv-gram">${esc(grp.name)}</span> ${esc(grp.ru)} · ${tierLabel(e)}`
+      : tierLabel(e);
+    t.innerHTML = `<div class="rv-en">${esc(e.w)}</div><div class="rv-ru">${esc(e.ru)}</div><div class="rv-cat">${info}</div>` +
       (ok ? '' : '<div class="rv-note">запомни</div>');
     field.appendChild(t);
     setTimeout(() => t.remove(), ok ? 1500 : 1800);
@@ -670,7 +707,11 @@
     const prev = stage(G.level - 1), cur = stage(G.level);
     let change = 'Чуть быстрее';
     if (cur.b > prev.b) change = 'Новая корзина · скорость сброшена';
-    else if (cur.hi > prev.hi || cur.lo > prev.lo) change = `Слова сложнее: ${TIER_LABEL[cur.hi]} · скорость сброшена`;
+    else if (cur.hi > prev.hi || cur.lo > prev.lo) {
+      change = G.mode === 'phrases'
+        ? `Новые конструкции: ${PH_TIER_LABEL[cur.hi]} · скорость сброшена`
+        : `Слова сложнее: ${TIER_LABEL[cur.hi]} · скорость сброшена`;
+    }
     extras.unshift(change);
     showLevelIntro(extras.join(' · '));
   }
@@ -680,7 +721,15 @@
     $('lbKicker').textContent = 'Уровень · ' + MODES[G.mode];
     $('lbNum').textContent = G.level;
     $('lbExtra').textContent = extra || '';
-    if (G.mode === 'translate') {
+    if (G.mode === 'phrases') {
+      // Показываем конструкции, которые встретятся на этом уровне.
+      const n = basketCount(G.level), [lo, hi] = tierRange(G.level);
+      G.baskets = placeholderBaskets(n);
+      const groups = (LANG.phrases || []).filter(g => g.tier >= lo && g.tier <= hi);
+      const lvl = lo === hi ? PH_TIER_LABEL[lo] : PH_TIER_LABEL[lo] + '–' + PH_TIER_LABEL[hi];
+      $('lbCats').innerHTML = `<span class="bcat" style="--c:${TR_COLORS[0]}">${n} ${plural(n, 'корзина', 'корзины', 'корзин')}<small>фразы ${lvl}</small></span>` +
+        groups.map((g, i) => `<span class="bcat" style="--c:${TR_COLORS[(i + 1) % TR_COLORS.length]};animation-delay:${0.1 + i * 0.07}s">${esc(g.name)}<small>${esc(g.ru)}</small></span>`).join('');
+    } else if (G.mode === 'translate') {
       const n = basketCount(G.level), [lo, hi] = tierRange(G.level);
       G.baskets = placeholderBaskets(n);
       const lvl = lo === hi ? TIER_LABEL[lo] : TIER_LABEL[lo] + '–' + TIER_LABEL[hi];
@@ -875,9 +924,11 @@
 
   function renderModeSwitches() {
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === D.settings.mode)));
-    const hint = D.settings.mode === 'translate'
-      ? 'Корзины — переводы слова. Чем выше уровень, тем больше корзин и сложнее слова (A1 → C1).'
-      : 'Корзины — темы: животные, еда, профессии… Положи слово в его тему.';
+    const hint = {
+      translate: 'Корзины — переводы слова. Чем выше уровень, тем больше корзин и сложнее слова (A1 → C1).',
+      phrases: 'Падают целые фразы: от «Привет!» и «Я устал» до условных предложений. Корзины — переводы.',
+      category: 'Корзины — темы: животные, еда, профессии… Положи слово в его тему.',
+    }[D.settings.mode];
     document.querySelectorAll('.mode-hint').forEach(h => { h.textContent = hint; });
   }
   function renderLangSwitches() {
@@ -889,7 +940,7 @@
     Store.save();
     loadLang(code);
     initBg();
-    G.baskets = G.mode === 'translate' ? placeholderBaskets(3) : chooseCategories(3);
+    G.baskets = isTr() ? placeholderBaskets(3) : chooseCategories(3);
     renderBaskets(false);
     renderMenu();
     if (!$('voicesPanel').hidden) renderVoices();
@@ -982,7 +1033,7 @@
     const box = $('dict');
     box.innerHTML = '';
     const learned = Store.learnedCount();
-    $('dictSum').textContent = `Изучено ${learned} из ${TR_WORDS.length} слов. Звёзды показывают, насколько уверенно ты раскладываешь слово. Нажми на слово, чтобы услышать его.`;
+    $('dictSum').textContent = `Изучено ${learned} из ${TR_WORDS.length + PHRASES.length} слов и фраз. Звёзды показывают, насколько уверенно ты раскладываешь слово. Нажми на слово, чтобы услышать его.`;
     CATS.forEach(c => {
       const sec = el('div', 'dcat');
       const got = c.words.filter(([w]) => Store.stars(w) > 0).length;
@@ -1003,12 +1054,28 @@
     const chips = el('div', 'chips');
     EXTRA_WORDS.forEach(e => {
       const st = Store.stars(e.w);
-      const chip = el('button', 'chip s' + st, `<b>${esc(e.w)}</b><span class="ru">${esc(e.ru)} · ${TIER_LABEL[e.tier]}</span>${st ? `<span class="st">${'★'.repeat(st)}</span>` : ''}`);
+      const chip = el('button', 'chip s' + st, `<b>${esc(e.w)}</b><span class="ru">${esc(e.ru)} · ${tierLabel(e)}</span>${st ? `<span class="st">${'★'.repeat(st)}</span>` : ''}`);
       chip.addEventListener('click', () => { Sfx.unlock(); Voices.speakOnce(e.w); });
       chips.appendChild(chip);
     });
     sec.appendChild(chips);
     box.appendChild(sec);
+    // Фразы — по конструкциям, от простых к сложным.
+    (LANG.phrases || []).forEach(g => {
+      const items = PHRASES.filter(e => e.cat === g.id);
+      const ps = el('div', 'dcat');
+      const pgot = items.filter(e => Store.stars(e.w) > 0).length;
+      ps.appendChild(el('h3', null, `💬 ${esc(g.name)} · ${esc(g.ru)} <span>${PH_TIER_LABEL[g.tier]} · ${pgot}/${items.length}</span>`));
+      const pc = el('div', 'chips');
+      items.forEach(e => {
+        const st = Store.stars(e.w);
+        const chip = el('button', 'chip s' + st, `<b>${esc(e.w)}</b><span class="ru">${esc(e.ru)}</span>${st ? `<span class="st">${'★'.repeat(st)}</span>` : ''}`);
+        chip.addEventListener('click', () => { Sfx.unlock(); Voices.speakOnce(e.w); });
+        pc.appendChild(chip);
+      });
+      ps.appendChild(pc);
+      box.appendChild(ps);
+    });
   }
 
   // ---------- Ввод ----------
@@ -1125,7 +1192,7 @@
     resize();
     initBg();
     G.mode = D.settings.mode;
-    G.baskets = G.mode === 'translate' ? placeholderBaskets(3) : chooseCategories(3);
+    G.baskets = isTr() ? placeholderBaskets(3) : chooseCategories(3);
     renderBaskets(false);
     renderHud();
     renderMenu();
